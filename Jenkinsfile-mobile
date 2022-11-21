@@ -1,0 +1,39 @@
+pipeline {
+    agent any
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
+    stages {
+        stage('Run Sitespeed') {
+            steps {
+                catchError(stageResult: 'UNSTABLE', buildResult: currentBuild.result) {
+                    sh ('docker run --rm -v ${WORKSPACE}:/sitespeed.io sitespeedio/sitespeed.io:25.3.2-plus1 \
+                    -n 1 urls.txt --mobile --outputFolder output \
+                    --budget.configPath budget.json --budget.output junit \
+                    --html.pageSummaryMetrics lighthouse.performance \
+                    --html.pageSummaryMetrics lighthouse.seo \
+                    --plugins.remove browsertime \
+                    --plugins.remove /gpsi \
+                    --browsertime.video false \
+                    --browsertime.chrome.timeline false \
+                    --browsertime.videoParams.createFilmstrip false')
+                }
+            }
+        }
+    }
+    post {
+        always {
+            publishHTML (target : [allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'output/',
+                reportFiles: 'pages.html',
+                reportName: 'Performance Report',
+                reportTitles: 'Performance Report'])
+                
+            cleanWs()
+        }
+    }
+}

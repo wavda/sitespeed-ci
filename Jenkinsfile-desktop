@@ -1,0 +1,48 @@
+pipeline {
+    agent any
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
+    stages {
+        stage('Run Sitespeed') {
+            steps {
+                catchError(stageResult: 'UNSTABLE', buildResult: currentBuild.result) {
+                    sh ('docker run --rm -v ${WORKSPACE}:/sitespeed.io sitespeedio/sitespeed.io:25.3.2-plus1 \
+                    -n 1 urls.txt --desktop --outputFolder output \
+                    --budget.configPath budget.json --budget.output junit \
+                    --html.pageSummaryMetrics lighthouse.performance \
+                    --html.pageSummaryMetrics lighthouse.seo \
+                    --plugins.remove browsertime \
+                    --plugins.remove /gpsi \
+                    --browsertime.video false \
+                    --browsertime.chrome.timeline false \
+                    --browsertime.videoParams.createFilmstrip false \
+                    --lighthouse.settings.formFactor desktop \
+                    --lighthouse.settings.screenEmulation.mobile false \
+                    --lighthouse.settings.screenEmulation.width=1366 \
+                    --lighthouse.settings.screenEmulation.height=768 \
+                    --lighthouse.settings.screenEmulation.deviceScaleFactor=2 \
+                    --lighthouse.settings.emulatedUserAgent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4695.0 Safari/537.36 Chrome-Lighthouse" \
+                    --lighthouse.settings.throttling.rttMs 40 \
+                    --lighthouse.settings.throttling.throughputKbps 10240 \
+                    --lighthouse.settings.throttling.cpuSlowdownMultiplier 1')
+                }
+            }
+        }
+    }
+    post {
+        always {
+            publishHTML (target : [allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'output/',
+                reportFiles: 'pages.html',
+                reportName: 'Performance Report',
+                reportTitles: 'Performance Report'])
+
+            cleanWs()
+        }
+    }
+}
